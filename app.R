@@ -6,7 +6,7 @@ library(shinythemes)
 library(stringr)
 library(shinyjs)
 
-
+# FYI you can use dplyr's select function to remove columns
 cost_rev <- read.csv('cost_rev.csv', header = TRUE)
 cost_rev$fund_number <- NULL
 cost_rev$department_number <- NULL
@@ -36,6 +36,7 @@ ui <- navbarPage("City Wide Revenues and Expenses",
                                           selectize = TRUE,
                                           selected = c("Department of Finance", "DPW-Operations","DPS-Police")),
                               # General ledger Date Select
+                              # Look into dateRangeInput() designed specifically for dates!
                               selectInput("DateSelect",
                                           "date:",
                                           choices = sort(unique(cost_rev$general_ledger_date)),
