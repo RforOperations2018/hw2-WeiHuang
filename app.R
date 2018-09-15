@@ -42,6 +42,11 @@ ui <- navbarPage("City Wide Revenues and Expenses",
                                           multiple = TRUE,
                                           selectize = TRUE,
                                           selected = c( "2016-01-08","2015-12-01","2015-08-31")),
+                              # Regular Account Select
+                              checkboxGroupInput("AccountSelct", 
+                                                 "Account Size:",
+                                                 choices = sort(unique(cost_rev$object_account_description)),
+                                                 selected = c("RUGULAR", "2% LOCAL SARE OF SLOTS REVENUE")),
                               # Amount Selection
                               sliderInput("AmountSelect",
                                           "amount:",
@@ -80,6 +85,10 @@ server <- function(input, output, session = session) {
     if (length(input$DepartmentSelect) > 0 ) {
       cost_rev <- subset(cost_rev, department_name %in% input$DepartmentSelect)
     }
+    if (length(input$AccountSelct) > 0 ) {
+      cost_rev <- subset(cost_rev, object_account_description %in% input$AccountSelct)
+    }
+    
     
     return(cost_rev)
     
@@ -116,6 +125,8 @@ server <- function(input, output, session = session) {
         geom_point())
   })
   
+
+  
   # Data Table
   output$table <- DT::renderDataTable({
     cost_rev <- crInput()
@@ -144,6 +155,7 @@ server <- function(input, output, session = session) {
     updateSelectInput(session, "DepartmentSelect", selected = c("Department of Finance", "DPW-Operations","DPS-Police"))
     updateSelectInput(session, "DateSelect", selected = c("2016-01-08","2015-12-01","2015-08-31"))
     updateSliderInput(session, "AmountSelect", value = c(min(cost_rev$amount, na.rm = T), max(cost_rev$amount, na.rm = T)))
+    updateCheckboxInput(session, "AccountSelct", value = c("RUGULAR", "2% LOCAL SARE OF SLOTS REVENUE"))
     showNotification("You have successfully reset the filters", type = "message")
   })
 }
