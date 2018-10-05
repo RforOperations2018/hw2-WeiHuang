@@ -5,23 +5,32 @@ library(plotly)
 library(shinythemes)
 library(stringr)
 library(shinyjs)
+library(httr)
+library(jsonlite)
 
-# FYI you can use dplyr's select function to remove columns
-cost_rev <- read.csv('cost_rev.csv', header = TRUE)
-cost_rev$fund_number <- NULL
-cost_rev$department_number <- NULL
-cost_rev$cost_center_number <- NULL
-cost_rev$object_account_number <- NULL
-cost_rev$ledger_code <- NULL
-cost_rev$ledger_descrpition<- NULL
 
-cost_rev <- cost_rev %>%
-  mutate(amount = as.numeric(amount),
-         department_name = as.character(department_name),
-         cost_center_description = as.character(cost_center_description),
-         X_id = as.factor(X_id))
-
+ckanSQL <- function(url){
+  # Make the Request
+  r <- RETRY("GET", URLencode(url))
+  # Extract Content
+  c <- content(r, "text")
+  # Basic gsub to make NA's consistent with R
+  json <- gsub('NaN', 'NA', c, perl = TRUE)
+  #Create Dataframe
+  data.frame(jsonlite::fromJSON(json)$result$records)
+}
 pdf(NULL)
+
+# Unique values for Resource Field
+ckanUniques <- function(id, field) {
+  url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20DISTINCT(%22", field, "%22)%20from%20%22", id, "%22")
+  c(ckanSQL(URLencode(url)))
+}
+
+types_date <- sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "general_ledger_data")$general_ledger_data)
+types_account <- sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "object_account_description")$object_account_description)
+types_depart <- sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "department_name")$department_name)
+types_amount <-sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "amount")$amount)
 
 # Define UI for application 
 ui <- navbarPage("City Wide Revenues and Expenses", 
@@ -31,29 +40,26 @@ ui <- navbarPage("City Wide Revenues and Expenses",
                               # Department name Select
                               selectInput("DepartmentSelect",
                                           "department name:",
-                                          choices = sort(unique(cost_rev$department_name)),
+                                          choices = types_depart,
                                           multiple = TRUE,
                                           selectize = TRUE,
                                           selected = c("Department of Finance", "DPW-Operations","DPS-Police")),
                               # General ledger Date Select
-                              # Look into dateRangeInput() designed specifically for dates!
-                              selectInput("DateSelect",
-                                          "date:",
-                                          choices = sort(unique(cost_rev$general_ledger_date)),
-                                          multiple = TRUE,
-                                          selectize = TRUE,
-                                          selected = c( "2016-01-08","2015-12-01","2015-08-31")),
+                              dateRangeInput("DateSelect",
+                                             "date",
+                                             start = Sys.Date()-30,
+                                             end = Sys.Date()),
                               # Regular Account Select
                               checkboxGroupInput("AccountSelct", 
                                                  "Account Size:",
-                                                 choices = sort(unique(cost_rev$object_account_description)),
+                                                 choices = types_account,
                                                  selected = c("RUGULAR", "2% LOCAL SARE OF SLOTS REVENUE")),
                               # Amount Selection
                               sliderInput("AmountSelect",
                                           "amount:",
-                                          min = min(cost_rev$amount, na.rm = T),
-                                          max = max(cost_rev$amount, na.rm = T),
-                                          value = c(min(cost_rev$amount, na.rm = T), max(cost_rev$amount, na.rm = T)),
+                                          min = min(types_amount, na.rm = T),
+                                          max = max(types_amount, na.rm = T),
+                                          value = c(min(types_amount, na.rm = T), max(types_amount, na.rm = T)),
                                           step = 1),
                               actionButton("reset", "Reset Filters", icon = icon("refresh"))
                             ),
@@ -79,15 +85,31 @@ ui <- navbarPage("City Wide Revenues and Expenses",
 server <- function(input, output, session = session) {
   # Filtered cost and revenue data
   crInput <- reactive({
-    cost_rev <- cost_rev %>%
+    #Build API Query with proper encodes
+    #cost_rev <- cost_rev %>%
+    url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20%2A%20FROM%20%22f61f6e8c-7b93-4df3-9935-4937899901c7%22%20WHERE%20%22general_ledger_date%22%20%3E%3D%20%27%22",
+                  input$DateSelect[1],"%27%20AND%20%22general_ledger_date%22%20%3C%3D%20%27",input$DateSelect[2],
+                  "%27%20AND%20%22object_account_description%22%20%3D%20%27", input$AccountSelect,
+                  "%27%20AND%20%22amount%22%20%3D%20%27", input$AmountSelect,
+                  "%27%20AND%20%22department_name%22%20%3D%20%27", input$DepartmentSelecr,"%27")
+    #Load and clean data
+    cost_rev <- ckanSQL(url) %>%
+      filter(grepl("2018", general_ledger_date) )  %>%
+      filter(grepl("GRANTS", object_account_description)|
+               grepl("CDBG-CITY PLANNING",object_account_description)|
+               grepl("OPERATIONAL SUPPLIES",object_account_description)) %>%
+      mutate(amount = as.numeric(amount),
+             department_name = as.character(department_name),
+             cost_center_description = as.character(cost_center_description),
+             X_id = as.factor(X_id)) 
       # Slider Filter
       filter(amount >= input$AmountSelect[1] & amount <= input$AmountSelect[2])
     # Department Name Filter
     if (length(input$DepartmentSelect) > 0 ) {
-      cost_rev <- subset(cost_rev, department_name %in% input$DepartmentSelect)
+       cost_rev <- subset(cost_rev, department_name %in% input$DepartmentSelect)
     }
     if (length(input$AccountSelct) > 0 ) {
-      cost_rev <- subset(cost_rev, object_account_description %in% input$AccountSelct)
+       cost_rev <- subset(cost_rev, object_account_description %in% input$AccountSelct)
     }
     
     
