@@ -30,6 +30,7 @@ ckanUniques <- function(id, field) {
 
 #Select unique data from website and turn it to list
 types_date <- sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "general_ledger_date")$general_ledger_date) 
+# You can also do a custom SQL query here that simply asks for MIN and MAX: https://www.w3schools.com/sql/sql_min_max.asp
 types_amount <-sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "amount")$amount)
 
 
@@ -75,11 +76,11 @@ server <- function(input, output, session = session) {
   crInput <- reactive({
     #Build API Query with proper encodes
     
-     url <- paste0("https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%22f61f6e8c-7b93-4df3-9935-4937899901c7%22%20WHERE%20%22general_ledger_date%22%20%3E=%20%27",
-                    input$DateSelect[1],"%27%20AND%20%22general_ledger_date%22%20%3C=%20%27",input$DateSelect[2],
-                    "%27%20AND%20%22amount%22%20%3E%3D", input$AmountSelect[1], "%20AND%20%22amount%22%20%3C%3D", input$AmountSelect[2],"%20;")
+     url <- paste0("https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%22f61f6e8c-7b93-4df3-9935-4937899901c7%22%20WHERE%20%22general_ledger_date%22%20%3E=%20%27",  input$DateSelect[1], 
+                   # The spacing choices here were a little confusing
+                   "%27%20AND%20%22general_ledger_date%22%20%3C=%20%27",input$DateSelect[2],
+                    "%27%20AND%20%22amount%22%20%3E%3D", input$AmountSelect[1], "%20AND%20%22amount%22%20%3C%3D", input$AmountSelect[2],"%20;") # You don't need the ";" for the api calls, but it is needed in SQL
   
-
     
     #Load and clean data
      cost_rev <- ckanSQL(url) %>%
@@ -101,6 +102,7 @@ server <- function(input, output, session = session) {
   })
   #Using box plots to show the distribution of the three chosen departments
    output$boxplot <- renderPlotly({
+     # This is not a boxplot...
       cost_rev <- crInput()
       ggplotly(
         ggplot(data = cost_rev, aes(x = department_name, y = as.numeric(amount))) + 
