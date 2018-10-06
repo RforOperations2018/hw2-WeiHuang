@@ -75,11 +75,10 @@ server <- function(input, output, session = session) {
   crInput <- reactive({
     #Build API Query with proper encodes
     
-    AmountFilter <- ifelse(length(input$AmountSelect) > 0, paste0(input$AmountSelect, collapse = "%27,%27"), paste0(types_amount, collapse = "%27,%27"))
-    
-    url <- paste0("https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%22f61f6e8c-7b93-4df3-9935-4937899901c7%22%20WHERE%20%22general_ledger_date%22%20%3E=%20%27",
-                   input$DateSelect[1],"%27%20AND%20%22general_ledger_date%22%20%3C=%20%27",input$DateSelect[2],
-                   "%27%20AND%20%22amount%22%20%IN%20(%27", AmountFilter,"%27%20)")
+     url <- paste0("https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%22f61f6e8c-7b93-4df3-9935-4937899901c7%22%20WHERE%20%22general_ledger_date%22%20%3E=%20%27",
+                    input$DateSelect[1],"%27%20AND%20%22general_ledger_date%22%20%3C=%20%27",input$DateSelect[2],
+                    "%27%20AND%20%22amount%22%20%3E%3D", input$AmountSelect[1], "%20AND%20%22amount%22%20%3C%3D", input$AmountSelect[2],"%20;")
+  
 
     
     #Load and clean data
@@ -126,7 +125,7 @@ server <- function(input, output, session = session) {
   output$table <- DT::renderDataTable({
     cost_rev <- crInput()
     
-    subset(cost_rev, select = c(department_name, cost_centre_description, general_ledger_date, amount))
+    subset(cost_rev, select = c(department_name, cost_center_description, general_ledger_date, amount))
   })
   # Updating the URL Bar
   observe({
