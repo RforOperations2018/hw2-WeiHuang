@@ -28,17 +28,17 @@ ckanUniques <- function(id, field) {
   c(ckanSQL(URLencode(url)))
 }
 
+#Select unique data from website and turn it to list
 types_date <- sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "general_ledger_date")$general_ledger_date) 
 types_amount <-sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "amount")$amount)
 
-types_department <- sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "department_name")$department_name) 
-types_cost_centre <- sort(ckanUniques("f61f6e8c-7b93-4df3-9935-4937899901c7", "cost_center_description")$cost_centre) 
 
 # Define UI for application 
 ui <- fluidPage(
   #Application title
   titlePanel("City Wide Revenues and Expenses"), 
   
+  #Design sider bar
   sidebarLayout(
     sidebarPanel(
       # General ledger Date Select
@@ -83,7 +83,7 @@ server <- function(input, output, session = session) {
 
     
     #Load and clean data
-     cost_rev <- ckanSQL(url) 
+     cost_rev <- ckanSQL(url) %>%
         mutate(date = as.Date(general_ledger_date))
 
      
